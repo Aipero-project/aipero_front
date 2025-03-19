@@ -12,35 +12,51 @@ import { ChatMessageList } from "@/components/ui/chat/chat-message-list";
 
 export default function Dialogue() {
   const [messages, setMessages] = useState([
-    {
-      id: 1,
-      text: "Hello, how has your day been? I hope you are doing well.",
-      sender: "user",
-    },
-    {
-      id: 2,
-      text: "Hi, I am doing well, thank you for asking. How can I help you today?",
-      sender: "ai",
-    },
+    { id: 1, text: "Hello! How can I help you?", sender: "ai" },
   ]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
 
+  // Fonction pour interagir avec LM Studio
+  const fetchAIResponse = async (userMessage) => {
+    try {
+      const response = await fetch("http://localhost:1234/v1/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "mistral", // Remplace par ton modèle (ex: "mistral", "llama3", etc.)
+          messages: [
+            { role: "system", content: "You are a helpful assistant." },
+            { role: "user", content: userMessage },
+          ],
+          max_tokens: 100,
+          temperature: 0.7,
+        }),
+      });
+
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || "No response from AI.";
+    } catch (error) {
+      console.error("Erreur API LM Studio :", error);
+      return "Erreur : impossible de contacter LM Studio.";
+    }
+  };
+
   // Fonction pour envoyer un message
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (input.trim() === "") return;
 
-    setMessages([...messages, { id: Date.now(), text: input, sender: "user" }]);
+    const newMessage = { id: Date.now(), text: input, sender: "user" };
+    setMessages((prevMessages) => [...prevMessages, newMessage]);
     setInput("");
 
-    // Simuler une réponse de l'IA après un court délai
-    setTimeout(() => {
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { id: Date.now() + 1, text: "This is an AI response.", sender: "ai" },
-      ]);
-    }, 1000);
+    // Récupérer la réponse de l'IA via LM Studio
+    const aiResponse = await fetchAIResponse(input);
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { id: Date.now() + 1, text: aiResponse, sender: "ai" },
+    ]);
   };
 
   // Défilement automatique vers le bas lors de l'ajout d'un message
